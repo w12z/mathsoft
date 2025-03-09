@@ -1,6 +1,6 @@
 #include<bits/stdc++.h>
-#include<nlohmann/json.hpp>  // 这是一个处理json的外部库
-#include<opencv2/opencv.hpp> // opencv显示库
+#include<nlohmann/json.hpp>  // 这是一个处理 json 的外部库
+#include<opencv2/opencv.hpp> // opencv 显示库
 #include<tbb/tbb.h>          // intel tbb 库，是一个支持多线程处理的开源库
 
 using namespace std;
@@ -34,16 +34,23 @@ const int WIDTH = 600, HEIGHT = 800;
 double xmin, xmax, ymin, ymax;
 int resLevel, width, height, loop;
 double step;
+
 cv::Mat canvas = cv::Mat::zeros(HEIGHT, WIDTH, CV_8UC3);
 
-int getDepth(Complex x, Complex &c, int dep) {
-    if(x.modSqr() > 4) {
-        return 0;
+int getDepth(Complex &c) {
+    Complex x = Complex(0, 0);
+    int dep = 0;
+    while(1){
+        if(x.modSqr() > 4) {
+            return dep;
+        }
+        if(dep == loop) {
+             return -1;
+        }
+        x = x * x + c;
+        dep ++;
     }
-    if(dep == loop) {
-        return -(loop + 1);
-    }
-    return getDepth(x * x + c, c, dep + 1) + 1; // 递归求得层数
+    return dep;
 }
 
 void reDraw() {
@@ -56,7 +63,7 @@ void reDraw() {
                 double i = xmin + 1.0 * ii * step;
                 for(double j = ymin; j <= ymax; j += step) {
                     Complex c = Complex(i, j);
-                    int depth = getDepth(Complex(0, 0), c, 0);
+                    int depth = getDepth(c);
                     int locx = round((i - xmin) / step), locy = (j - ymin) / step; // 此处的 round 函数是因为多线程分块的整数重新映射回 double 时出现精度丢失
                     if(locx < 0 || locx > width || locy < 0 || locy > height) {
                         continue;
@@ -100,7 +107,16 @@ int main() {
     while(1) {
         double midx = (xmax + xmin) / 2.0, midy = (ymax + ymin) / 2.0;
         double lenx = (xmax - xmin), leny = (ymax - ymin); //计算中心点以及区间长度
+
+        auto start = chrono::high_resolution_clock::now();
+    
         reDraw(); // 改变后重新绘图
+
+        auto end = chrono::high_resolution_clock::now();
+        chrono::duration<double> elapsed = end - start; // 一次重新绘图的计算耗时
+        
+        cout << "Redraw time: " << elapsed.count() << " s\n";
+
         cv::imshow("Display window", canvas);
         int key = cv::waitKey(0);
         if(key ==  'z') {
